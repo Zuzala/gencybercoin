@@ -4,7 +4,7 @@ Django settings for GenCyberCoin project.
 """
 
 #import dj_database_url #dj-database-url==0.4.1
-import os 
+import os
 if 'RDS_DB_NAME' in os.environ:
     from cryptocoin.aws.conf import *
 
@@ -20,7 +20,7 @@ if not SECRET_KEY:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['gencybercoin.tk', 'www.gencybercoin.tk', '.elasticbeanstalk.com', '34.202.109.150', '52.71.151.103', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -84,25 +84,27 @@ if 'RDS_DB_NAME' in os.environ:
             'PORT': os.environ['RDS_PORT'],
         }
     }
+elif 'RUN_IN_DOCKER' in os.environ:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'coin_db',
+            'USER': 'coin_admin',
+            'PASSWORD': 'go-figure-me-cow',
+            'HOST': 'postgres',
+            'PORT': '5432',
+        }
+    }
 else:
     DATABASES = {
         'default': {
-            'ENGINE': os.getenv('SQL_ENGINE', 'django.db.backends.postgresql'),
-            'NAME': os.getenv('SQL_DATABASE', os.path.join(BASE_DIR, 'db.postgresql')),
-            'USER': os.getenv('SQL_USER', 'user'),
-            'PASSWORD': os.getenv('SQL_PASSWORD', 'password'),
-            'HOST': os.getenv('SQL_HOST', 'localhost'),
-            'PORT': os.getenv('SQL_PORT', '5432'),
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'coin_db',
+            'USER': 'coin_admin',
+            'PASSWORD': 'go-figure-me-cow',
+            'HOST': 'localhost',
+            'PORT': '5432',
         }
-        
-        # 'default': {
-        #     'ENGINE': 'django.db.backends.postgresql',
-        #     'NAME': 'coin_db',
-        #     'USER': 'coin_admin',
-        #     'PASSWORD': 'go-figure-me-cow',
-        #     'HOST': 'localhost',
-        #     'PORT': '5432',
-        # }
     }
 
 
@@ -142,12 +144,11 @@ PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_ROOT = os.path.join(PROJECT_DIR, 'static')
 STATIC_URL = '/static/'
 
-
 # File storage settiings
 MEDIA_ROOT = os.path.join(PROJECT_DIR, 'media')
 MEDIA_URL = '/media/'
 
-
+CSRF_FAILURE_VIEW = 'user.views.csrf_failure'
 
 # Secure settings
 #SSLIFY_DISABLE = True
@@ -167,4 +168,4 @@ IMPORT_EXPORT_USE_TRANSACTIONS = True
 DEFAULT_HONORARY_COINS = 50
 DEFAULT_PERMANENT_COINS = 0
 
-SESSION_EXPIRY_TIME = 7200
+SESSION_EXPIRY_TIME = 21600

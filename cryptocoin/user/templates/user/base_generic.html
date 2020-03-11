@@ -15,12 +15,29 @@
     <!-- Bootstrap Core CSS -->
     <link href="{% static 'user/css/bootstrap.min.css' %}" rel="stylesheet">
 
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+
     <!-- Custom CSS -->
     <link href="{% static 'user/css/business-casual.min.css' %}" rel="stylesheet">
     <link href="{% static 'user/css/timeline.min.css' %}" rel="stylesheet">
     <link href="{% static 'user/css/bootstrap-toggle.min.css' %}" rel="stylesheet">
     {% block customcss %}
     {% endblock %}
+    <style>
+        .icon {
+          width: 16px;
+          height: 16px;
+          padding: 0;
+          margin: 0;
+          vertical-align: middle;
+        }
+        {% if request.user and request.user|check_atlantis %}
+        body {
+            background: url("/static/user/img/atlantis.jpg") no-repeat center center fixed;
+        }
+        {% endif %}
+    </style>
 
     <!-- Custom favicon -->
     <link rel="icon" href="{% static 'user/img/favicon.png' %}">
@@ -39,9 +56,29 @@
 </head>
 
 <body>
+    {% if request.user|has_group:"gcadmin" %}
+    <form class="form-horizontal" action="{% url 'user:update-header' %}" method="post">
+        {% csrf_token %}
+    {% endif %}
+        <div class="brand">
+            {% if request.user|has_group:"gcadmin" %}<input name="brand" type="text" class="live-edit" value="{% if request.user|get_brand != "" %}{{ request.user|get_brand }}{% else %}GenCyberCoin{% endif %}">
+            {% elif request.user|get_brand != "" %}{{ request.user|get_brand }}
+            {% else %}GenCyberCoin{% endif %}
+        </div>
+        <div class="address-bar">
+            {% if request.user|has_group:"gcadmin" %}<input name="title" type="text" class="live-edit" value="{% if request.user|get_title != "" %}{{ request.user|get_title }}{% else %}GenCyber | Where security meets opportunity{% endif %}">
+            {% elif request.user|get_title != "" %}{{ request.user|get_title }}
+            {% else %}GenCyber | Where security meets opportunity{% endif %}
 
-    <div class="brand">GenCyberCoin</div>
-    <div class="address-bar">GenCyber | Where security meets opportunity{% if request.user|get_school != "" %} | {{ request.user|get_school }}{% endif %}</div>
+            {% if request.user|has_group:"gcadmin" %}
+            <div class="pull-right" style="position: relative; top: 0; left: 0; width: 100%; padding-top: 3px;">
+                <button type="submit" class="btn btn-primary">Update header</button>
+            </div>
+            {% endif %}
+        </div>
+    {% if request.user|has_group:"gcadmin" %}
+    </form>
+    {% endif %}
 
     <!-- Navigation -->
     <nav class="navbar navbar-default" role="navigation">
@@ -70,27 +107,28 @@
                     <li><a href="{% url 'user:wallet' %}">Wallet</a></li>
                     {% endif %}
                 {% else %}
-                    <li><a href="{% url 'user:account' %}">My account</a></li>
+                    <li><a href="{% url 'user:account' %}">Account</a></li>
                 {% endif %}
                 {% if not request.user.is_superuser and request.user.is_authenticated and not request.user|has_group:"gcadmin" %}
                     <li><a href="{% url 'user:market' %}">Market</a></li>
                     <li class="dropdown">
                         <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Features<span class="caret"></span></a>
                         <ul class="dropdown-menu">
-                            <li><a href="{% url 'user:extras-cryptocurrency' %}">Cryptocurrency</a></li>
-                            <li><a href="{% url 'user:extras-blockchain' %}">Blockchain</a></li>
+                            <li><a href="{% url 'user:extras-cryptocurrency' %}"><i class="fab fa-bitcoin"></i>  Cryptocurrency</a></li>
+                            <li><a href="{% url 'user:extras-blockchain' %}"><i class="fas fa-link"></i>  Blockchain</a></li>
                             {% if request.user|has_bug_bounty %}
                             <hr style="margin: 2px;">
-                            <li><a href="{% url 'user:extras-bug-bounty' %}">Bug Bounty</a></li>
-                            <li><a href="{% url 'user:extras-hall-of-fame' %}">Hall of Fame</a></li>
+                            <li><a href="{% url 'user:extras-bug-bounty' %}"><i class="fas fa-bug"></i>  Bug Bounty</a></li>
+                            <li><a href="{% url 'user:extras-hall-of-fame' %}"><i class="fab fa-jedi-order"></i>  Hall of Fame</a></li>
                             {% endif %}
                             {% if request.user|has_se %}
                             <hr style="margin: 2px;">
-                            <li><a href="{% url 'user:extras-social-engineering' %}">Reconnaissance</a></li>
+                            <li><a href="{% url 'user:extras-social-engineering' %}"><i class="fab fa-searchengin"></i>  Reconnaissance</a></li>
+                            <li><a href="{% url 'user:extras-osint-ninjas' %}"><i class="fas fa-user-ninja"></i>  OSINT Ninjas</a></li>
                             {% endif %}
                             {% comment %}<li><a href="#driplets-game" data-toggle="modal">Mini-Game</a></li>{% endcomment %}
                             <hr style="margin: 2px;">
-                            <li><a href="{% url 'user:extras-feedback' %}">Leave Feedback</a></li>
+                            <li><a href="{% url 'user:extras-feedback' %}"><i class="fas fa-comments"></i>  Leave Feedback</a></li>
                         </ul>
                     </li>
                 {% endif %}
@@ -98,20 +136,20 @@
                     <li class="dropdown">
                         <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Admin<span class="caret"></span></a>
                         <ul class="dropdown-menu">
-                            <li><a href="{% url 'user:code-generator' %}">Code Generator</a></li>
+                            <li><a href="{% url 'user:code-generator' %}"><i class="fas fa-key"></i>  Generate Codes</a></li>
                             {% if not request.user.is_superuser %}
-                            <li><a href="{% url 'user:market-admin' %}">Market Editor</a></li>
-                            <li><a href="{% url 'user:achievements-admin' %}">Activity Editor</a></li>
-                            <li><a href="{% url 'user:extras-social-engineering-admin' %}">Reconnaissance Editor</a></li>
+                            <li><a href="{% url 'user:market-admin' %}"><i class="fas fa-store"></i>  Edit Market</a></li>
+                            <li><a href="{% url 'user:achievements-admin' %}"><i class="fas fa-edit"></i>  Edit Activities</a></li>
+                            <li><a href="{% url 'user:extras-social-engineering-admin' %}"><i class="fab fa-searchengin"></i>  Edit Reconnaissance</a></li>
                             <hr style="margin: 2px;">
-                            <li><a href="{% url 'user:nominations-admin' %}">Activity Nomination</a></li>
-                            <li><a href="{% url 'user:student-carts-admin' %}">Student Orders</a></li>
-                            <li><a href="{% url 'user:student-manager-admin' %}">Student Manager</a></li>
+                            <li><a href="{% url 'user:nominations-admin' %}"><i class="fas fa-exchange-alt"></i>  Nominate Activities</a></li>
+                            <li><a href="{% url 'user:student-carts-admin' %}"><i class="fas fa-shopping-cart"></i>  Student Orders</a></li>
+                            <li><a href="{% url 'user:student-manager-admin' %}"><i class="fas fa-user-edit"></i>  Student Manager</a></li>
                             <hr style="margin: 2px;">
-                            <li><a href="{% url 'user:settings-admin' %}">Display Settings</a></li>
+                            <li><a href="{% url 'user:settings-admin' %}"><i class="fas fa-cogs"></i>  Settings</a></li>
                             {% endif %}
                             <hr style="margin: 2px;">
-                            <li><a href="{% url 'user:show-feedback-admin' %}">Show Feedback</a></li>
+                            <li><a href="{% url 'user:show-feedback-admin' %}"><i class="fas fa-comments"></i>  Show Feedback</a></li>
                         </ul>
                     </li>
                     <!--<li><a href="#">Student View</a></li>-->
@@ -142,9 +180,13 @@
             <div class="row">
                 <div class="col-lg-12 text-center">
 <!-- Designed and developed by Dr. Vitaly Ford, https://vford.me -->
-                    <p class="lead">Copyright &copy; Dr. Vitaly Ford (<span style="color: #0000ff;">fordv@arcadia.edu</span>)<br>
-                        Collaborator: Cybersecurity Education Research and Outreach Center (Dr. Ambareen Siraj)<br>in support for the NSA/NSF GenCyber Program
-                    </p>
+                    <p class="lead"><small>Copyright &copy; Dr. Vitaly Ford (<span style="color: #0000ff;">fordv@arcadia.edu</span>
+                        <button type="button" class="btn btn-default btn-xs btn-copy js-tooltip js-copy" data-toggle="tooltip" data-placement="bottom" data-copy="fordv@arcadia.edu" title="Copy to clipboard">
+                          <!-- icon from google's material design library -->
+                          <svg class="icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="12" height="12" viewBox="0 0 24 24"><path d="M17,9H7V7H17M17,13H7V11H17M14,17H7V15H14M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3Z" /></svg>
+                        </button>)<br>
+                        Collaborator: Cybersecurity Education Research and Outreach Center (Dr. Ambareen Siraj)<br>in support of the NSA/NSF GenCyber Program
+                    </small></p>
                 </div>
             </div>
         </div>
@@ -166,6 +208,41 @@
     <script src="{% static 'user/js/bootstrap-toggle.min.js' %}"></script>
     {% block customjs %}
     {% endblock %}
+
+    <script>
+    function copyToClipboard(text, el) {
+      var copyTest = document.queryCommandSupported('copy');
+      var elOriginalText = el.attr('data-original-title');
+
+      if (copyTest === true) {
+        var copyTextArea = document.createElement("textarea");
+        copyTextArea.value = text;
+        document.body.appendChild(copyTextArea);
+        copyTextArea.select();
+        try {
+          var successful = document.execCommand('copy');
+          var msg = successful ? 'Copied!' : 'Whoops, not copied!';
+          el.attr('data-original-title', msg).tooltip('show');
+        } catch (err) {
+          console.log('Oops, unable to copy');
+        }
+        document.body.removeChild(copyTextArea);
+        el.attr('data-original-title', elOriginalText);
+      } else {
+        // Fallback if browser doesn't support .execCommand('copy')
+        window.prompt("Copy to clipboard: Ctrl+C or Command+C, Enter", text);
+      }
+    }
+
+    $(document).ready(function() {
+      $('.js-tooltip').tooltip();
+      $('.js-copy').click(function() {
+        var text = $(this).attr('data-copy');
+        var el = $(this);
+        copyToClipboard(text, el);
+      });
+    });
+    </script>
 
     {% comment %}{% include "driplets.htm" %}{% endcomment %}
 </body>

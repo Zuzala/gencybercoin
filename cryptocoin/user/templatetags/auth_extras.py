@@ -4,11 +4,31 @@ from user.models import PortalSetting, UserData
 
 register = template.Library()
 
+
+@register.filter(name='group_number_equals')
+def has_group(user, group):
+    try:
+        ud = UserData.objects.get(username=user.username)
+        for s in group:
+            if ud.group_number == s['group_number']:
+                return True
+        return False
+    except:
+        return False
+
+
+@register.filter(name='check_atlantis')
+def student_mode(user):
+    ud = UserData.objects.get(username=user.username)
+    return bool(ud.team_number)
+
+
 @register.filter(name='student_mode')
 def student_mode(user):
     ud = UserData.objects.get(username=user.username)
     student_mode = ud.school.student_mode_for_admins
     return student_mode
+
 
 @register.filter(name='is_admin')
 def is_admin(user):
@@ -16,6 +36,7 @@ def is_admin(user):
         return UserData.objects.get(username=user.username).is_admin
     except:
         return False
+
 
 @register.filter(name='has_group')
 def has_group(user, group_name):
@@ -30,6 +51,7 @@ def has_group(user, group_name):
     except:
         return False
 
+
 @register.filter(name='has_bug_bounty')
 def has_bug_bounty(user):
     try:
@@ -40,6 +62,7 @@ def has_bug_bounty(user):
     except:
         pass
     return False
+
 
 @register.filter(name='has_se')
 def has_se(user):
@@ -52,11 +75,32 @@ def has_se(user):
         pass
     return False
 
+
 @register.filter(name='get_school')
 def get_school(user):
     try:
         ud = UserData.objects.get(username=user.username)
         return ud.school.name
+    except:
+        pass
+    return ""
+
+
+@register.filter(name='get_brand')
+def get_school(user):
+    try:
+        ud = UserData.objects.get(username=user.username)
+        return ud.school.brand
+    except:
+        pass
+    return ""
+
+
+@register.filter(name='get_title')
+def get_school(user):
+    try:
+        ud = UserData.objects.get(username=user.username)
+        return ud.school.title
     except:
         pass
     return ""

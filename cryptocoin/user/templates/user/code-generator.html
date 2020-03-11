@@ -1,5 +1,9 @@
 {% extends "base_generic.html" %}
 
+{% block customcss %}
+    {% include "extras/nice-checkbox.html" %}
+{% endblock %}
+
 {% block content %}
 <!-- Account info -->
 <div class="row">
@@ -15,6 +19,10 @@
           {% endif %}
           {% if error_message %}<div class="lead text-center text-warning">{{ error_message }}</div>{% endif %}
           <p class="lead text-center">Generate codes for {% if is_gcadmin %}students{% endif %}{% if is_superuser %}admins{% endif %}</p>
+          <div class="normal-text">
+              <p class="lead">Registration codes allow students to register on this website. You can make a code that works for everyone (infinite checkbox) or you can make multiple one-time codes, download them, cut, and give them to students.</p>
+              <p class="lead">Same applies to the random award coins. Also, if you want, you can make custom award codes.</p>
+          </div>
           <form class="form-inline text-center" action="{% url 'user:submit-code-generator' %}" method="post">
           {% csrf_token %}
               {% if is_gcadmin %}
@@ -27,14 +35,17 @@
                 <input type="text" class="form-control margin-top" id="iV" name="inputValue" maxlength="15" placeholder="" disabled/>
               {% endif %}
               {% if is_superuser %}
-                <input type="text" class="form-control margin-top" id="iS" name="inputSchool" maxlength="70" placeholder="Name of the school" required/>
+                <input type="text" class="form-control margin-top" id="iS" name="inputSchool" maxlength="100" placeholder="Name of the school" required/>
               {% endif %}
-                <input type="text" class="form-control margin-top" id="iC" name="inputCount" maxlength="20" placeholder="Number of codes" required/>
+                <input type="text" class="form-control margin-top" id="iC" name="inputCount" maxlength="100" placeholder="Number of codes" required/>
                 <button type="submit" class="btn btn-success margin-top" name="generate" value="generate">Generate</button>
                 <br>
-                <label class="checkbox-inline">
-                    <input type="checkbox" name="infinite">Infinite (can be only redeemed once per student but used by all of them)
-                </label>
+                <div class="checkbox" style="padding-top: 20px;">
+                    <label>
+                        <input type="checkbox" name="infinite">
+                        <span class="cr"><i class="cr-icon fa fa-rocket"></i></span>Infinite (can be only redeemed once per student but used by all of them)
+                    </label>
+                </div>
           </form>
         </div>
     </div>
@@ -53,7 +64,47 @@
         </form>
         {% endif %}
 {% if is_superuser %}
-            <table class="table table-hover table-responsive gctable">
+        <div class="table-responsive">
+            <table class="table table-hover gctable lead">
+                <tbody>
+                    <tr>
+                        <td>Logged in Users</td>
+                        <td>{{ all_schools_object.sessions }}</td>
+                    </tr>
+                    <tr>
+                        <td>Schools</td>
+                        <td>{{ all_schools_object.schools }}</td>
+                    </tr>
+                    <tr>
+                        <td>Students</td>
+                        <td>{{ all_schools_object.total_students }}</td>
+                    </tr>
+                    <tr>
+                        <td>Bugs found</td>
+                        <td>{{ all_schools_object.bugs_found }}</td>
+                    </tr>
+                    <tr>
+                        <td>Reconnaisance questions</td>
+                        <td>{{ all_schools_object.se_asked }}</td>
+                    </tr>
+                    <tr>
+                        <td>Reconnaisance answered</td>
+                        <td>{{ all_schools_object.se_answered }}</td>
+                    </tr>
+                    <tr>
+                        <td>Activities</td>
+                        <td>{{ all_schools_object.activities }}</td>
+                    </tr>
+                    <tr>
+                        <td>Market items</td>
+                        <td>{{ all_schools_object.market_items }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <hr>
+        <div class="table-responsive">
+            <table class="table table-hover gctable">
                 <tbody>
                   <small class="lead">
                       <tr>
@@ -66,21 +117,29 @@
                   <small class="lead">
                   <tr>
                       <td scope="row">
-                          <p class="lead">{{ school }}</p>
-                          <form class="form-inline" action="{% url 'user:submit-code-generator' %}" method="post">
-                          {% csrf_token %}
-                              <input type="hidden" name="school" value="{{ school }}">
-                              <button type="submit" class="btn btn-default" name="delete" value="registration">Delete codes</button>
-                          </form>
+                          <p class="lead"><a role="button" name="{{ school.name }}" id="delete-school-{{ forloop.counter0 }}" data-toggle="modal" data-target="#confirmModal" onclick="submitMe(this)" data-toggle="tooltip" title="Delete {{ school.name }} and all its data"><i class="far fa-trash-alt"></i></a> {{ school.name }}</p>
+                          <ul>
+                              <li class="sublead">Students: {{ school.total_students }}</li>
+                              <li class="sublead">Bugs found: {{ school.bugs_found }}</li>
+                              <li class="sublead">Reconnaisance questions: {{ school.se_asked }}</li>
+                              <li class="sublead">Reconnaisance answered: {{ school.se_answered }}</li>
+                              <li class="sublead">Activities: {{ school.activities }}</li>
+                              <li class="sublead">Market items: {{ school.market_items }}</li>
+                          </ul>
                       </td>
                       <td scope="row">
-                    {% for c in code_items %}
-                      <p class="lead">{{ c }}</p>
-                    {% endfor %}
+                          <form class="form-inline" action="{% url 'user:submit-code-generator' %}" method="post">
+                          {% csrf_token %}
+                              <input type="hidden" name="school" value="{{ school.name }}">
+                              <button type="submit" class="btn btn-default" name="delete" value="registration">Delete codes</button>
+                          </form>
+                        {% for c in code_items %}
+                          <p class="lead">{{ c }}</p>
+                        {% endfor %}
                       </td>
                       <td scope="row">
                     {% for admin in admins %}
-                    {% if admin.school__name == school %}
+                    {% if admin.school__name == school.name %}
                       <p class="lead">{{ admin.first_name }} {{ admin.last_name }}</p>
                     {% endif %}
                     {% empty %}
@@ -96,6 +155,7 @@
                 {% endfor %}
                 </tbody>
             </table>
+        </div>
 {% endif %}
 {% if is_gcadmin %}
             <table class="table table-hover table-responsive gctable">
@@ -142,10 +202,42 @@
 {% endif %}
     </div>
 </div>
+
+{% if is_superuser %}
+<!-- Confirm modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                Confirmation
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete <span id="deleteThisSchool"></span> and all its data?
+            </div>
+            <div class="modal-footer">
+                <form class="form-horizontal" action="{% url 'user:delete-school' %}" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="school" value="" id="hiddenDelete">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="submit" name="delete" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End confirm modal -->
+{% endif %}
 {% endblock %}
 
 {% block customjs %}
 <script>
+$(document).ready(function(){
+    $("[data-toggle=tooltip]").tooltip({ placement: 'top'});
+    {% for school, code_items in codes.items %}
+    $('#delete-school-{{ forloop.counter0 }}').tooltip();
+    {% endfor %}
+});
+
 function updateCode(obj) {
     if (obj.selectedIndex == -1)
         return null;
@@ -167,6 +259,11 @@ function updateCode(obj) {
     else {
         iC.placeholder = "Number of codes";
     }
+}
+
+function submitMe(currObject) {
+     $('#deleteThisSchool').text(currObject.name);
+     document.getElementById('hiddenDelete').value = currObject.name;
 }
 </script>
 {% endblock %}

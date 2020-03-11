@@ -6,6 +6,7 @@ from django.db.models import Sum, Min
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Q
+from math import ceil
 
 # imports for image
 from PIL import Image
@@ -15,7 +16,7 @@ from django.core.files.base import ContentFile
 # imports for Groups
 from django.contrib.auth.models import Group
 
-#imports for Pagination
+# imports for Pagination
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 # imports from settings
@@ -35,10 +36,41 @@ import json
 from django.http import Http404, HttpResponseNotFound
 import base64
 
+# import for on-save object validation
+from django.core.exceptions import ValidationError
+
+
+def paginate_list(request, input, cutout_length):
+    paginator = Paginator(input, cutout_length)
+    page = request.GET.get('page')
+    if not page: page = 1
+    return paginator.get_page(page)
+
+
+def validate_on_save(request, obj, message_on_success=''):
+    try:
+        obj.full_clean()
+    except ValidationError as e:
+        output = "Trying to break stuff, huh? ;-P Well, here is the message that will tell you what you are doing wrong: "
+        for k, v in enumerate(e.message_dict.items()):
+            output += str(v)
+        messages.warning(request, output)
+        ud = get_object_or_404(UserData, username=request.user.username)
+        # bug bounty
+        run_bug_bounty(request, ud, 'bug#4:overflow_max_length', 'Congrats! You found a programming bug, overflowing the maximum length allowed to be saved in the SQL database! This bug could potentially reveal sensitive information and could be exploited to crash the system.', 'https://www.owasp.org/index.php/Testing_for_Input_Validation')
+        # end bug bounty
+        return False
+    else:
+        if message_on_success != '':
+            messages.info(request, message_on_success)
+        return True
+
+
 def goto_login(request, page_name):
     return render(request, 'user/login.html', {
         'error_message': "You need to login or register to enter the " + page_name,
     })
+
 
 def run_bug_bounty(request, ud, bug_name, bug_message, link):
     award_amount = 0
@@ -60,6 +92,7 @@ def run_bug_bounty(request, ud, bug_name, bug_message, link):
         pass
     return award_amount
 
+
 def init_portal_settings(school):
     # settings for:
     # allow/disallow ordering items on the market
@@ -79,7 +112,7 @@ def init_portal_settings(school):
     # set the amount of coins for the bug bounty
     bug_bounty_award_amount, ba_created = PortalSetting.objects.get_or_create(name="bug_bounty_award_amount", school=school)
     if ba_created:
-        bug_bounty_award_amount.value = "20" # default value in coins
+        bug_bounty_award_amount.value = "20"  # default value in coins
         bug_bounty_award_amount.save()
     # allow/disallow social engineering exercise
     se_enabled, se_created = PortalSetting.objects.get_or_create(name="se_enabled", school=school)
@@ -89,17 +122,17 @@ def init_portal_settings(school):
     # set the amount of coins for social engineering
     se_award_amount, sea_created = PortalSetting.objects.get_or_create(name="se_award_amount", school=school)
     if sea_created:
-        se_award_amount.value = "20" # default value in coins
+        se_award_amount.value = "20"  # default value in coins
         se_award_amount.save()
     # set how may top-students can order items in any given time
     top_students_number, ts_created = PortalSetting.objects.get_or_create(name="top_students_number", school=school)
     if ts_created:
-        top_students_number.value = "3" # default value of 3 top-students can order at the same time
+        top_students_number.value = "3"  # default value of 3 top-students can order at the same time
         top_students_number.save()
     # set the value for the queue auto-expansion
     queue_wait_period, qw_created = PortalSetting.objects.get_or_create(name="queue_wait_period", school=school)
     if qw_created:
-        queue_wait_period.value = "1" # default value of 1 min
+        queue_wait_period.value = "1"  # default value of 1 min
         queue_wait_period.save()
     # allow/disallow pagination on the market page
     pagination_enabled, pa_created = PortalSetting.objects.get_or_create(name="pagination_enabled", school=school)
@@ -109,8 +142,14 @@ def init_portal_settings(school):
     # set the maximum allowed amount to transfer by students
     amount_allowed_to_send, aats_created = PortalSetting.objects.get_or_create(name="amount_allowed_to_send", school=school)
     if aats_created:
-        amount_allowed_to_send.value = "5" # default value in coins
+        amount_allowed_to_send.value = "5"  # default value in coins
         amount_allowed_to_send.save()
+    # define the program type, camp is default
+    program_type, program_type_created = PortalSetting.objects.get_or_create(name="program_type", school=school)
+    if program_type_created:
+        program_type.value = "camp"
+        program_type.save()
+
 
 def get_portal_settings(school):
     context = {}
@@ -119,6 +158,7 @@ def get_portal_settings(school):
     for s in ps:
         context[s.name] = s.value
     return context
+
 
 def get_all_market_data(request, ud):
     marketdata = MarketItem.objects.filter(school=ud.school)

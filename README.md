@@ -13,6 +13,29 @@ GenCyberCoin has been successfully deployed at Tennessee Tech's GenCyber summer 
 
 GenCyberCoin reinforces the objectives that the GenCyber program has established. It complements the existing GenCyber camp activities and facilitates building curiosity and passion to pursue cybersecurity and to solve challenges in this field.
 
+A 12-minute summary video on GenCyberCoin platform for instructors/admins is available here:
+
+[![Watch the video](instructions/img-readme/homepage.png)](https://arcadia.hosted.panopto.com/Panopto/Pages/Embed.aspx?id=4a2d137e-e80f-4dd3-bc5e-aa1e00f7b4b7&v=1)
+
+A 2-minute summary video on GenCyberCoin platform for students is available here:
+
+[![Watch the video](instructions/img-readme/students.png)](https://arcadia.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=af6dc731-ca20-40e0-b386-aa6b002af746)
+
+# Bug Bounty
+
+A Bug Bounty walk through (solution video) is available upon request.
+
+# Docker instructions
+
+GenCyberCoin is dockerized (runs on nginx + gunicorn + postgresql + python3.7 + Django) and to run GenCyberCoin through Docker, you would need to install:
+ - Docker,
+ - Docker Compose,
+ - and if you have Mac or Windows, you would need to install Docker Machine.
+
+After installing the above-mentioned software, open the Docker Terminal and navigate to this project's main directory (a place where `build.sh` is located). Then, run `build.sh` from the Docker Terminal (by typing `./build.sh`) and it will build and run the containers. Upon successful execution, the GenCyberCoin will be running on your IP address, port 80. You can navigate to it in your browser and go straight to [creating administrators](#creating-administrators) section.
+
+To stop the containers, type `docker-compose down` from the same place (where `build.sh` is located). All your data will be saved even after stopping and starting the containers back up again.
+
 # Local setup instructions
 
 The instructions for setting up a local version of the GenCyberCoin project can be found [here](instructions/Local_setup.MD).
@@ -53,4 +76,16 @@ Contact Vitaly Ford fordv@arcadia.edu with one of the following subject lines, d
 
 We thank [NSA/NSF GenCyber program](https://www.gen-cyber.com/ "NSA/NSF GenCyber Program") for funding the implementation of this project.
 
-We also thank Andy Malinsky, a Computer Science and Mathematics student at Arcadia University, for bug hunting, testing the project's code, and helping with writing these instructions.
+We also thank Andy Malinsky and Ivan Zhang, a Computer Science and Mathematics students at Arcadia University, for bug hunting, testing the project's code, and helping with writing these instructions.
+
+# Hall of Fame
+
+A list of students from different schools who contributed to identifying security flaws on this platform (alphabetic order) and sharing those with us.
+
+1. Devkumar Banerjee
+1. Diego Mannikarote
+1. Kevin Zhang
+1. Leo Abanov
+1. Logan Warren
+1. Pierce Mannikarote
+1. Ryan Glendenning

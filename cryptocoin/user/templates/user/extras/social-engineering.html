@@ -5,7 +5,7 @@
     <div class="box">
         <div class="col-lg-12">
             <hr>
-            <h2 class="intro-text text-center">Reconnaissance</h2>
+            <h2 class="intro-text text-center">Reconnaissance ({% if allquestions and correctanswers %}{{ correctanswers|length }}/{{ allquestions|length }}{% else %}0/0{% endif %})</h2>
             <hr>
             {% if messages %}
               {% for message in messages %}
@@ -13,23 +13,37 @@
               {% endfor %}
             {% endif %}
             <div class="normal-text">
-                <p class="lead">Reconnaissance in the cyber space is all about gaining knowledge about a specific target. Social engineering is a part of it, being an art of retrieving information from people who are not aware of what information they share with strangers. Here, you can try to find answers to the following questions by using your Internet searching skills or figuring out a way to ask those people the right questions, in the right time, in a very specific way so that they will not "suspect" anything. You are encouraged to form groups in order to achieve your objectives.</p>
+                <p class="lead text-primary">The order of the words does not matter in your answers. Also, make sure that you separate the words with a space. The answers are case insensitive.</p>
+                <p class="lead">Reconnaissance in the cyber space is all about gaining knowledge about a specific target. <u><a href="https://www.webroot.com/us/en/resources/tips-articles/what-is-social-engineering" target="_blank">Social Engineering</a></u> (SE) is a part of it, being an art of retrieving information from people who are not aware of what information they share with strangers. Here, you can try to find answers to the following questions by using your Internet searching skills or figuring out a way to ask those people the right questions, in the right time, in a very specific way so that they will not "suspect" anything. You are encouraged to form groups in order to achieve your objectives.</p>
                 <p class="lead">People are the weakest link in security. Staying constantly aware of whom you communicate with, what links you click on, and what information you see in front of you is important in order to stay secure in the 21st century (and beyond).</p>
             </div>
             {% if allquestions %}
             <div class="col-sm-2"></div>
             <div class="col-sm-8" style="padding-top: 20px;">
                 <form class="form-horizontal" action="{% url 'user:submit-social-engineering' %}" method="post">
-                {% csrf_token %}
+                    {% csrf_token %}
+            {% if correctanswers %}
+                <div class="text-center"><button type="button" class="btn btn-link btn-lg" data-toggle="collapse" data-target="#admin_show_info" style="white-space: normal;">Show correctly answered challenges</button></div>
+                <div id="admin_show_info" class="collapse">
                     {% for q in allquestions %}
-                    <div class="form-group{% if q.id in correctanswers %} has-success has-feedback{% endif %}">
-                        <label for="q{{ q.id }}">{{ q.question }}</label>
-                        <input type="text" class="form-control" id="q{{ q.id }}" name="{{ q.id }}" maxlength="200" {% if q.id in correctanswers %}value="{{ q.answer }}" aria-describedby="q{{ q.id }}Status"{% else %}placeholder="Enter you answer"{% endif %}>
                         {% if q.id in correctanswers %}
-                        <span class="glyphicon glyphicon-ok form-control-feedback" aria-hidden="true"></span>
-                        <span id="q{{ q.id }}Status" class="sr-only">(success)</span>
+                            <div class="form-group{% if q.id in correctanswers %} has-success has-feedback{% endif %}">
+                                <label for="q{{ q.id }}">{{ q.question }}</label>
+                                <input type="text" class="form-control" id="q{{ q.id }}" name="{{ q.id }}" maxlength="200" value="{{ q.answer }}" aria-describedby="q{{ q.id }}Status">
+                                <span class="glyphicon glyphicon-ok form-control-feedback" aria-hidden="true"></span>
+                                <span id="q{{ q.id }}Status" class="sr-only">(success)</span>
+                            </div>
                         {% endif %}
-                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+                    {% for q in allquestions %}
+                        {% if q.id not in correctanswers %}
+                            <div class="form-group{% if q.id in correctanswers %} has-success has-feedback{% endif %}">
+                                <label for="q{{ q.id }}">{{ q.question }}</label>
+                                <input type="text" class="form-control" id="q{{ q.id }}" name="{{ q.id }}" maxlength="200" placeholder="Enter you answer">
+                            </div>
+                        {% endif %}
                     {% endfor %}
                     <div class="form-group">
                         <button type="submit" class="btn btn-primary" name="submit">Submit</button>

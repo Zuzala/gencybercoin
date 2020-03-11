@@ -1,13 +1,24 @@
 from .views_global import *
 from .view_market import market
 from tablib import Dataset
-import csv, codecs
 from ..resources import MarketItemResource
+from django.db.models import Max
+from django.contrib.sessions.models import Session
+import datetime
 
-##
-## management portal
-##
-VALID_IMAGE_EXTENSIONS = [".jpg",".jpeg",".png",".gif"]
+
+VALID_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]
+
+
+def delete_school(request):
+    if request.user.is_authenticated and request.user.is_superuser and 'delete' in request.POST and 'school' in request.POST:
+        users = UserData.objects.filter(school__name=request.POST.get('school'))
+        for user in users:
+            get_object_or_404(User, username=user.username).delete()
+        School.objects.filter(name=request.POST.get('school')).delete()
+        messages.info(request, 'Successfully deleted ' + request.POST.get('school') + ' and all its data')
+    return HttpResponseRedirect(reverse('user:code-generator'))
+
 
 def generate_gencyber_code():
     done = 1
@@ -24,13 +35,13 @@ def generate_gencyber_code():
             break
     return data
 
+
 def submit_code_generator(request):
     if request.user.is_authenticated and request.method == 'POST':
         # check if the code is infinite
         is_infinite = False
         if "infinite" in request.POST:
             is_infinite = (request.POST.get('infinite') == 'on')
-        context = {}
         # 'key' consists of the school id + "!" or "#" + code itself
         if request.user.is_superuser and ('inputSchool' in request.POST) and ('inputCount' in request.POST):
             school = request.POST.get('inputSchool')
@@ -40,10 +51,12 @@ def submit_code_generator(request):
                     raise
             except:
                 count = 0
-                messages.warning(request, 'The code must be an integer > 0')
+                messages.warning(request, 'The count must be an integer > 0')
             # get or create a new School, if created => initialize default PortalSettings
             s, created = School.objects.get_or_create(name=school)
             if created:
+                s.title = s.title + " | " + school
+                s.save()
                 init_portal_settings(s)
             for i in range(count):
                 key = str(s.id) + "!" + generate_gencyber_code()
@@ -55,14 +68,14 @@ def submit_code_generator(request):
             try:
                 count, custom_code = 0, "0"
                 if type == "custom":
-                    custom_code = request.POST.get('inputCount')
+                    custom_code = request.POST.get('inputCount').lower()
                 else:
                     try:
                         count = int(request.POST.get('inputCount'))
                         if count < 0:
                             raise
                     except:
-                        messages.warning(request, 'The code must be an integer > 0')
+                        messages.warning(request, 'The count must be an integer > 0')
                         count = 0
                     if count > 500:
                         count = 500
@@ -70,11 +83,11 @@ def submit_code_generator(request):
                 if (type == "award" or type == "custom") and request.POST.get('inputValue') != "":
                     try:
                         award_value = int(request.POST.get('inputValue'))
-                        if award_value < 0 or award_value > 1000000:
+                        if award_value < 0 or award_value > 500000000:
                             raise
                     except:
                         award_value = 0
-                        messages.warning(request, 'The award value should be between 0 and 1000000')
+                        messages.warning(request, 'The award value should be between 0 and 500000000')
             except:
                 messages.warning(request, 'Please enter a number, not a string')
             else:
@@ -90,7 +103,8 @@ def submit_code_generator(request):
                         c.save()
                 else:
                     c = Code(allowed_hash=custom_code, name='award', value=award_value, school=school_gcadmin, infinite=is_infinite)
-                    c.save()
+                    if validate_on_save(request, c):
+                        c.save()
         elif 'delete' in request.POST:
             if request.POST.get('delete') == "registration":
                 if request.user.is_superuser:
@@ -104,24 +118,44 @@ def submit_code_generator(request):
                 Code.objects.filter(school=school_gcadmin, name='award').delete()
     return HttpResponseRedirect(reverse('user:code-generator'))
 
+
 def code_generator(request):
     if request.user.is_authenticated:
         context = {}
         # the following returns the list of all codes to show on the page
         if request.user.is_superuser:
+            class SchoolObject():
+                pass
             context['is_superuser'] = "true"
             schools = School.objects.all()
             codes_output = {}
+            all_schools_object = SchoolObject()
+            all_schools_object.schools = School.objects.all().count()
+            all_schools_object.total_students = UserData.objects.filter(is_admin=False).count()
+            all_schools_object.bugs_found = Bugs.objects.all().count()
+            all_schools_object.se_asked = SEQuesAnsw.objects.all().count()
+            all_schools_object.se_answered = SECorrectAnswer.objects.all().count()
+            all_schools_object.activities = Achievement.objects.all().count()
+            all_schools_object.market_items = MarketItem.objects.all().count()
+            all_schools_object.sessions = Session.objects.filter(expire_date__gt=datetime.datetime.now()).count()
+            context['all_schools_object'] = all_schools_object
             for s in schools:
-                curr_school_name = s.name
-                codes_output[curr_school_name] = []
+                school_object = SchoolObject()
+                school_object.name = s.name
+                school_object.total_students = UserData.objects.filter(school__name=s.name, is_admin=False).count()
+                school_object.bugs_found = Bugs.objects.filter(school__name=s.name).count()
+                school_object.se_asked = SEQuesAnsw.objects.filter(school__name=s.name).count()
+                school_object.se_answered = SECorrectAnswer.objects.filter(se_ques_answ__school__name=s.name).count()
+                school_object.activities = Achievement.objects.filter(school__name=s.name).count()
+                school_object.market_items = MarketItem.objects.filter(school__name=s.name).count()
+                codes_output[school_object] = []
                 codes = Code.objects.filter(school=s)
                 for c in codes:
                     if "!" in c.allowed_hash:
                         if c.infinite:
-                            codes_output[curr_school_name].append(c.allowed_hash + " (inf)")
+                            codes_output[school_object].append(c.allowed_hash + " (inf)")
                         else:
-                            codes_output[curr_school_name].append(c.allowed_hash)
+                            codes_output[school_object].append(c.allowed_hash)
             context['codes'] = codes_output
             context['admins'] = UserData.objects.filter(is_admin=True).values('first_name', 'last_name', 'school__name')
             return render(request, 'user/code-generator.html', context)
@@ -147,42 +181,66 @@ def code_generator(request):
             return render(request, 'user/code-generator.html', context)
     return HttpResponseRedirect(reverse('user:index'))
 
+
+def group_students(request, ud):
+    next_group_number = UserData.objects.filter(school=ud.school).aggregate(Max('group_number'))['group_number__max'] + 1
+    selectedStudents = request.POST.getlist('selectedStudents[]')
+    for s in selectedStudents:
+        u = get_object_or_404(UserData, id=int(s), school=ud.school)
+        u.group_number = next_group_number
+        u.save()
+
+
+def ungroup_students(request, ud):
+    selectedStudents = request.POST.getlist('selectedStudents[]')
+    for s in selectedStudents:
+        u = get_object_or_404(UserData, id=int(s), school=ud.school)
+        u.group_number = 0
+        u.save()
+
+
 def submit_nominations_admin(request):
     if request.user.is_authenticated:
         ud = get_object_or_404(UserData, username=request.user.username)
         if request.user.groups.filter(name='gcadmin').exists():
-            all_is_good = True
-            try:
-                activity_award_amount = int(request.POST.get('activity_award_amount'))
-            except:
-                messages.warning(request, 'The activity reward amount has been set to 0')
-                activity_award_amount = 0
-            selectedStudents   = request.POST.getlist('selectedStudents')
-            selectedActivities = request.POST.getlist('selectedActivities')
-            if selectedStudents and selectedActivities:
-                for a in selectedActivities:
-                    for s in selectedStudents:
-                        try:
-                            ud = get_object_or_404(UserData, id=int(s))
-                            activity = get_object_or_404(Achievement, id=int(a))
-                        except:
-                            messages.warning(request, 'ERROR: Student with id=' + s + ' or activity with id=' + a + ' has not been added')
-                            all_is_good = False
-                        else:
-                            activity.user_data.add(ud)
-                            # assign the activity reward if not zero
-                            if activity_award_amount != 0:
-                                ud.permanent_coins = ud.permanent_coins + activity_award_amount
-                                ud.save()
-                                # record the activity on the blockchain
-                                sender_name = 'GenCyber Team (activity ' + str(activity.id) + ')'
-                                tl = TransferLogs(sender=sender_name, receiver=ud.username, amount=activity_award_amount, school=ud.school, hash=hashlib.sha1(str(time.time()).encode()).hexdigest())
-                                tl.save()
-                if all_is_good:
-                    messages.info(request, 'All students and activities have been successfully assigned')
-                else:
-                    messages.warning(request, 'Some of the students or activities have not been assigned')
+            if 'group' in request.POST:
+                group_students(request, ud)
+            elif 'ungroup' in request.POST:
+                ungroup_students(request, ud)
+            else:
+                all_is_good = True
+                try:
+                    activity_award_amount = int(request.POST.get('activity_award_amount'))
+                except:
+                    messages.warning(request, 'The activity reward amount has been set to 0')
+                    activity_award_amount = 0
+                selectedStudents   = request.POST.getlist('selectedStudents[]')
+                selectedActivities = request.POST.getlist('selectedActivities')
+                if selectedStudents and selectedActivities:
+                    for a in selectedActivities:
+                        for s in selectedStudents:
+                            try:
+                                u = get_object_or_404(UserData, id=int(s), school=ud.school)
+                                activity = get_object_or_404(Achievement, id=int(a))
+                            except:
+                                messages.warning(request, 'ERROR: Student with id=' + s + ' or activity with id=' + a + ' has not been added')
+                                all_is_good = False
+                            else:
+                                activity.user_data.add(u)
+                                # assign the activity reward if not zero
+                                if activity_award_amount != 0:
+                                    u.permanent_coins = u.permanent_coins + activity_award_amount
+                                    u.save()
+                                    # record the activity on the blockchain
+                                    sender_name = 'GenCyber Team (activity ' + str(activity.id) + ')'
+                                    tl = TransferLogs(sender=sender_name, receiver=u.username, amount=activity_award_amount, school=u.school, hash=hashlib.sha1(str(time.time()).encode()).hexdigest())
+                                    tl.save()
+                    if all_is_good:
+                        messages.info(request, 'All students and activities have been successfully assigned')
+                    else:
+                        messages.warning(request, 'Some of the students or activities have not been assigned')
     return HttpResponseRedirect(reverse('user:nominations-admin'))
+
 
 def nominations_admin(request):
     if request.user.is_authenticated:
@@ -190,9 +248,21 @@ def nominations_admin(request):
         if request.user.groups.filter(name='gcadmin').exists():
             context = {}
             context['achievements'] = Achievement.objects.filter(school=ud.school).order_by('name')
-            context['students'] = UserData.objects.filter(school=ud.school).order_by('first_name', 'last_name').values('first_name', 'last_name', 'username', 'id')
+            context['students'] = UserData.objects.filter(school=ud.school, group_number=0).order_by('first_name', 'last_name').values('group_number', 'first_name', 'last_name', 'username', 'id')
+            users = UserData.objects.filter(Q(school=ud.school) & ~Q(group_number=0)).order_by('group_number', 'first_name', 'last_name').values('group_number', 'first_name', 'last_name', 'username', 'id')
+            groups = []
+            curr_group = -1
+            last_group_index = -1
+            for u in users:
+                if curr_group != u['group_number']:
+                    curr_group = u['group_number']
+                    groups.append([])
+                    last_group_index = len(groups) - 1
+                groups[last_group_index].append(u)
+            context['groups'] = groups
             return render(request, 'user/nominations-admin.html', context)
     return HttpResponseRedirect(reverse('user:index'))
+
 
 def add_new_achievements_item(request, ud):
     try:
@@ -216,21 +286,22 @@ def add_new_achievements_item(request, ud):
         messages.warning(request, 'Please check the restrictions: quantity >= 0 and 1 <= tier <= 10')
         return
     try:
-        if image_file == "" or not image_file: # use defaults for image_file
+        if image_file == "" or not image_file:  # use defaults for image_file
             activity_item = Achievement(name=name, description=descr, school=ud.school)
         else:
             activity_item = Achievement(name=name, description=descr, image_file=image_file, school=ud.school)
     except:
         messages.warning(request, 'Something went wrong with the new activity, it has not been added')
     else:
-        activity_item.save()
-        messages.info(request, name + ' has been added')
+        if validate_on_save(request, activity_item):
+            activity_item.save()
+            messages.info(request, name + ' has been added')
+
 
 def submit_achievements_admin(request):
     if request.user.is_authenticated:
         ud = get_object_or_404(UserData, username=request.user.username)
         if request.user.groups.filter(name='gcadmin').exists():
-            context = {}
             if request.method == 'POST':
                 try:
                     if "addNewItem" in request.POST:
@@ -277,7 +348,7 @@ def submit_achievements_admin(request):
                                             messages.warning(request, 'Images should be images when you upload them, non-image files are not allowed')
                                     else:
                                         messages.warning(request, 'Only jpg, jpeg, png, and gif are allowed to be uploaded')
-                                activity_item.save()
+                                if validate_on_save(request, activity_item): activity_item.save()
                             elif update_remove == "remove":
                                 messages.info(request, 'Activity item ' + activity_item.name + ' has been deleted')
                                 if activity_item.image_file.url != "/media/no-image.jpg":
@@ -289,6 +360,7 @@ def submit_achievements_admin(request):
         return market(request)
     return HttpResponseRedirect(reverse('user:index'))
 
+
 def achievements_admin(request):
     if request.user.is_authenticated:
         ud = get_object_or_404(UserData, username=request.user.username)
@@ -298,6 +370,7 @@ def achievements_admin(request):
             context['achievements'] = achievements
             return render(request, 'user/achievements-admin.html', context)
     return HttpResponseRedirect(reverse('user:index'))
+
 
 def market_admin(request):
     if request.user.is_authenticated:
@@ -318,6 +391,7 @@ def market_admin(request):
         return market(request)
     return HttpResponseRedirect(reverse('user:index'))
 
+
 def crop_image(image, x, y, w, h):
     width, height = image.size
     size = 300, 300
@@ -332,13 +406,15 @@ def crop_image(image, x, y, w, h):
             return image
         else:
             cropped_image.thumbnail(size, Image.ANTIALIAS)
-            #rotated_image = cropped_image.rotate(r)
-            #cropped_image = cropped_image.resize((200, 200), Image.ANTIALIAS)
+            # rotated_image = cropped_image.rotate(r)
+            # cropped_image = cropped_image.resize((200, 200), Image.ANTIALIAS)
             return cropped_image
+
 
 def image_upload_market(ud, filename):
     image_path = '{school}/market/{filename}'.format(school=ud.school.id, filename=filename)
     return image_path
+
 
 def save_image(request, ud, image_file, id):
     im = Image.open(image_file)
@@ -360,6 +436,7 @@ def save_image(request, ud, image_file, id):
         return im_content
     except:
         return image_file
+
 
 def add_new_market_item(request, ud):
     try:
@@ -390,15 +467,17 @@ def add_new_market_item(request, ud):
         messages.warning(request, 'Please check the restrictions: quantity >= 0 and 1 <= tier <= 10')
         return
     try:
-        if image_file == "" or not image_file: # use defaults for image_file
+        if image_file == "" or not image_file:  # use defaults for image_file
             marketitem = MarketItem(name=name, description=descr, quantity=quantity, tier=tier, school=ud.school)
         else:
             marketitem = MarketItem(name=name, description=descr, quantity=quantity, tier=tier, image_file=image_file, school=ud.school)
     except:
         messages.warning(request, 'Something went wrong with the new market item, it has NOT been added')
     else:
-        marketitem.save()
-        messages.info(request, name + ' has been added')
+        if validate_on_save(request, marketitem):
+            marketitem.save()
+            messages.info(request, name + ' has been added')
+
 
 def process_import_csv(request, ud):
     try:
@@ -409,7 +488,7 @@ def process_import_csv(request, ud):
             messages.warning(request, 'The file does not exist')
         else:
             try:
-                imported_data = dataset.load(new_items.read().decode("utf-8"))
+                dataset.load(new_items.read().decode("utf-8"))
                 # add school id and header
                 school_id_list = ()
                 for i in range(dataset.height):
@@ -433,6 +512,7 @@ def process_import_csv(request, ud):
                     messages.warning(request, result.errors())
     except Exception as e:
         messages.warning(request, e)
+
 
 def process_export_csv(school_id):
     market_resource = MarketItemResource()
@@ -463,16 +543,19 @@ def process_export_csv(school_id):
     response.write(dataset_for_school.csv)
     return response
 
+
 def delete_all_market_items(request, school):
     try:
         market_items = MarketItem.objects.filter(school=school)
         for i in market_items:
-            i.image_file.delete()
+            if i.image_file.url != "/media/no-image.jpg":
+                i.image_file.delete()
             i.delete()
     except:
         messages.warning(request, 'Something went wrong, not all items have been deleted')
     else:
         messages.info(request, 'Successfully deleted all market items')
+
 
 def submit_market_admin(request):
     if request.user.is_authenticated:
@@ -547,7 +630,7 @@ def submit_market_admin(request):
                                             messages.warning(request, 'Images should be images when you upload them, non-image files are not allowed')
                                     else:
                                         messages.warning(request, 'Only jpg, jpeg, png, and gif are allowed to be uploaded')
-                                market_item.save()
+                                if validate_on_save(request, market_item): market_item.save()
                                 context = {'status': 'success', 'message': 'Successfully updated ' + market_item.name}
                                 return JsonResponse(context)
                             elif update_remove == "remove":
@@ -561,22 +644,58 @@ def submit_market_admin(request):
         return market(request)
     return HttpResponseRedirect(reverse('user:index'))
 
+
+def configure_market(request, ud, enabled):
+    MAX_TIERS = 10
+    try:
+        top_students_number = get_object_or_404(PortalSetting, school=ud.school, name="top_students_number")
+        queue_capacity = int(top_students_number.value)
+    except:
+        queue_capacity = 5
+    # set the tier values for the top students
+    if enabled == "true":  # the market is enabled
+        top_students = UserData.objects.filter(school=ud.school, is_admin=False).order_by('-permanent_coins')[:queue_capacity]
+        tier_number = MAX_TIERS
+        multiplier = 0
+        for student in top_students:
+            multiplier += student.permanent_coins
+            student.tier = tier_number
+            student.save()
+            tier_number = (tier_number - 2) if (tier_number > 2) else 1
+        # set the market items prices
+        multiplier = int(multiplier / (queue_capacity * MAX_TIERS))
+        marketdata = MarketItem.objects.filter(school=ud.school)
+        for m in marketdata:
+            m.cost_permanent = m.tier * multiplier
+            m.save()
+    else:  # if market is turned off then reset all students' tier values to 0
+        students = UserData.objects.filter(school=ud.school, tier__gt=0, is_admin=False)
+        for student in students:
+            student.tier = 0
+            student.save()
+
+
 def update_setting(request, ud, portal_setting):
     # enabling portal_setting
-    enabled = str(request.POST.get(portal_setting) == 'on').lower()
-    ps = get_object_or_404(PortalSetting, school=ud.school, name=portal_setting)
-    if ps.value != enabled:
-        ps.value = enabled
-        ps.save()
+    try:
+        enabled = str(request.POST.get(portal_setting) == 'on').lower()
+        ps = get_object_or_404(PortalSetting, school=ud.school, name=portal_setting)
+        if ps.value != enabled:
+            ps.value = enabled
+            ps.save()
+            program_type = get_object_or_404(PortalSetting, school=ud.school, name='program_type').value
+            if program_type == 'classroom' and portal_setting == 'market_enabled':
+                # re-configure the market space if the market has been switched on/off
+                configure_market(request, ud, enabled)
+    except:
+        messages.warning(request, portal_setting + ' does not exist')
+
 
 def submit_settings_admin(request):
     if request.user.is_authenticated:
         ud = get_object_or_404(UserData, username=request.user.username)
         if request.user.groups.filter(name='gcadmin').exists():
-            context = {}
             if 'save' in request.POST:
-                # enabling market for students
-                update_setting(request, ud, 'market_enabled')
                 # enabling ajax
                 update_setting(request, ud, 'ajax_enabled')
                 # enabling bug bounty for students
@@ -643,7 +762,22 @@ def submit_settings_admin(request):
                         aats = get_object_or_404(PortalSetting, school=ud.school, name='amount_allowed_to_send')
                         aats.value = str(amount_allowed_to_send)
                         aats.save()
+                # setting up the program type
+                if 'program_type' in request.POST:
+                    try:
+                        pt = request.POST.get('program_type')
+                        if pt != 'camp' and pt != 'classroom':
+                            raise
+                    except:
+                        messages.warning(request, 'Program type does not exist or it is of incorrect type')
+                    else:
+                        program_type = get_object_or_404(PortalSetting, school=ud.school, name='program_type')
+                        program_type.value = pt
+                        program_type.save()
+                # enabling market for students
+                update_setting(request, ud, 'market_enabled')
     return HttpResponseRedirect(reverse('user:settings-admin'))
+
 
 def settings_admin(request):
     if request.user.is_authenticated:
@@ -654,6 +788,7 @@ def settings_admin(request):
         return render(request, 'user/account.html', {})
     return HttpResponseRedirect(reverse('user:index'))
 
+
 def student_carts_admin(request):
     if request.user.is_authenticated:
         ud = get_object_or_404(UserData, username=request.user.username)
@@ -663,13 +798,14 @@ def student_carts_admin(request):
             for s in students:
                 # try-except in case if cart does not exists
                 try:
-                    carts[s.first_name + " " +s.last_name + " (aka " + s.username + ")"] = s.cart.market_items.all().values_list('name', flat=True)
+                    carts[s.first_name + " " + s.last_name + " (aka " + s.username + ")"] = s.cart.market_items.all().values_list('name', flat=True)
                 except:
                     pass
             context = {'carts': carts}
             return render(request, 'user/student-carts-admin.html', context)
         return render(request, 'user/account.html', {})
     return HttpResponseRedirect(reverse('user:index'))
+
 
 def submit_student_manager_admin(request):
     if request.user.is_authenticated and request.method == 'POST':
@@ -678,10 +814,10 @@ def submit_student_manager_admin(request):
             if request.POST.get('hiddenDelete') == "All":
                 users = UserData.objects.filter(~Q(username=ud.username) & Q(school=ud.school))
                 for user in users:
-                    CodeRedeemer.objects.filter(username=user.username).delete()
-                    User.objects.filter(username=user.username).delete()
+                    # CodeRedeemer.objects.filter(user_data=user).delete()
+                    get_object_or_404(User, username=user.username).delete()
                 TransferLogs.objects.filter(school=ud.school).delete()
-                UserData.objects.filter(~Q(username=ud.username) & Q(school=ud.school)).delete()
+                users.delete()
                 messages.info(request, 'All user data except yours have been deleted')
             else:
                 try:
@@ -696,11 +832,12 @@ def submit_student_manager_admin(request):
                         messages.warning(request, 'User ID does not exist')
                     else:
                         TransferLogs.objects.filter(Q(sender=username) | Q(receiver=username)).delete()
-                        CodeRedeemer.objects.filter(username=username).delete()
+                        # CodeRedeemer.objects.filter(user_data=deleteUser).delete()
                         deleteUser.delete()
                         get_object_or_404(User, username=username).delete()
                         messages.info(request, 'The user ' + username + ' and all user\'s data have been deleted')
     return HttpResponseRedirect(reverse('user:student-manager-admin'))
+
 
 def student_manager_admin(request):
     if request.user.is_authenticated:
@@ -711,6 +848,7 @@ def student_manager_admin(request):
             return render(request, 'user/student-manager-admin.html', context)
     return HttpResponseRedirect(reverse('user:index'))
 
+
 def change_mode_admin(request):
     if request.user.is_authenticated:
         ud = get_object_or_404(UserData, username=request.user.username)
@@ -720,27 +858,38 @@ def change_mode_admin(request):
             return HttpResponseRedirect(reverse('user:index'))
     return HttpResponseRedirect(reverse('user:index'))
 
+
 def show_feedback_admin(request):
     context = {}
+    cutout_length = 20
     if request.user.is_superuser:
-        feedback = Feedback.objects.all().order_by('id')
-        count = feedback.count() // 2
+        feedback = paginate_list(request, Feedback.objects.exclude(message__contains="<script").order_by('id'), cutout_length)
+        count = int(ceil(len(feedback) / 2))
         for f in feedback:
             f.date = f.date.strftime("%B %d, %Y, %I:%M:%S %p").replace(' 0', ' ')
-        context['feedbackFirst'] = feedback[:count]
-        context['feedbackSecond'] = feedback[count:]
+        context['feedbackdata'] = feedback
+        context['columnsplitter'] = str(count)
         return render(request, 'user/show-feedback-admin.html', context)
     if request.user.is_authenticated:
         ud = get_object_or_404(UserData, username=request.user.username)
         if request.user.groups.filter(name='gcadmin').exists():
-            feedback = Feedback.objects.filter(school=ud.school).order_by('id')
-            count = feedback.count() // 2
+            scripts_hidden, scripts_hidden_created = PortalSetting.objects.get_or_create(name="scripts_hidden", school=ud.school)
+            if scripts_hidden_created:
+                scripts_hidden.value = "false"
+                scripts_hidden.save()
+            if scripts_hidden.value == "true":
+                feedback = paginate_list(request, Feedback.objects.filter(school=ud.school).exclude(message__contains="<script").order_by('id'), cutout_length)
+            else:
+                feedback = paginate_list(request, Feedback.objects.filter(school=ud.school).order_by('id'), cutout_length)
+            count = int(ceil(len(feedback) / 2))
             for f in feedback:
                 f.date = f.date.strftime("%B %d, %Y, %I:%M:%S %p").replace(' 0', ' ')
-            context['feedbackFirst'] = feedback[:count]
-            context['feedbackSecond'] = feedback[count:]
+            context['feedbackdata'] = feedback
+            context['columnsplitter'] = str(count)
+            context['scripts_hidden'] = scripts_hidden.value
             return render(request, 'user/show-feedback-admin.html', context)
     return HttpResponseRedirect(reverse('user:index'))
+
 
 def submit_feedback_admin(request):
     if request.user.is_authenticated:
@@ -748,9 +897,16 @@ def submit_feedback_admin(request):
         if request.user.groups.filter(name='gcadmin').exists():
             if request.method == 'POST' and 'deleteAll' in request.POST:
                 try:
-                    feedback_messages = Feedback.objects.filter(school=ud.school).delete()
+                    Feedback.objects.filter(school=ud.school).delete()
                 except:
                     messages.warning(request, 'Something went wrong, not all messages have been deleted')
                 else:
                     messages.info(request, 'Successfully deleted all feedback messages')
+            elif request.method == 'POST' and 'hideScripts' in request.POST:
+                scripts_hidden, scripts_hidden_created = PortalSetting.objects.get_or_create(name="scripts_hidden", school=ud.school)
+                if scripts_hidden_created:
+                    scripts_hidden.value = "true"
+                else:
+                    scripts_hidden.value = "true" if scripts_hidden.value == "false" else "false"
+                scripts_hidden.save()
     return HttpResponseRedirect(reverse('user:show-feedback-admin'))

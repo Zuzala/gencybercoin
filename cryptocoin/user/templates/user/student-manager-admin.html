@@ -1,12 +1,18 @@
 {% extends "base_generic.html" %}
 
 {% load auth_extras %}
+
+{% block customcss %}
+<!-- For table sorting -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.19/css/jquery.dataTables.css">
+{% endblock %}
+
 {% block content %}
 <div class="row">
     <div class="box">
         <div class="col-lg-12">
             <hr>
-            <h2 class="intro-text text-center">Welcome to GenCyber Camp at {{ request.user|get_school }}</h2>
+            <h2 class="intro-text text-center">Student Manager</h2>
             <hr>
             {% if messages %}
               {% for message in messages %}
@@ -15,7 +21,7 @@
             {% endif %}
             {% if userdata %}
             <div class="table-responsive">
-              <table class="table table-hover">
+              <table class="display" id="table-to-sort">
               <thead>
                 <tr>
                   <th>#</th>
@@ -41,7 +47,11 @@
                   <td>{{ d.username }}</td>
                   <td class="text-center">{{ d.honory_coins }}</td>
                   <td class="text-center">{{ d.permanent_coins }}</td>
-                  <td class="text-center">{{ d.items_bought }}</td>
+                  {% if program_type == "classroom" %}
+                    <td class="text-center">{{ d.tier }}</td>
+                  {% else %}
+                    <td class="text-center">{{ d.items_bought }}</td>
+                  {% endif %}
                   <td class="text-center"><div id="passwords" class="user-password">{{ d.password }}</div></td>
                   <td class="text-center">
                       <div id="deleteUsers" class="user-delete"><button type="button" class="btn btn-default" name="delete{{ d.id }}" value="{{ d.username }}" onclick="submitMe(this)" data-toggle="modal" data-target="#confirmModal">Delete {{ d.username }}</button></div>
@@ -53,7 +63,7 @@
             {% else %}
               <p class="lead text-center">No students are registered yet</p>
             {% endif %}
-          </div>
+            </div>
         </div>
     </div>
 </div>
@@ -73,7 +83,7 @@
                     {% csrf_token %}
                     <input type="hidden" name="hiddenDelete" id="hiddenDelete">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-                    <button type="submit" id="submit" class="btn btn-success success">Delete</button>
+                    <button type="submit" id="submit" class="btn btn-danger">Delete</button>
                 </form>
             </div>
         </div>
@@ -83,6 +93,8 @@
 {% endblock %}
 
 {% block customjs %}
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.js"></script>
+
 <script>
     $("#show-hide-passwords").click(function() {
         var show_hide = document.getElementById('show-hide-passwords');
@@ -122,5 +134,24 @@
          document.getElementById('hiddenDelete').value = currObject.name.replace("delete", "");
          document.getElementById('submit').name = currObject.name;
     }
+
+    $(document).ready(function() {
+    $('#table-to-sort').DataTable( {
+        "aLengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+        columnDefs: [ {
+            targets: [ 0 ],
+            orderData: [ 0, 1 ]
+        }, {
+            targets: [ 1 ],
+            orderData: [ 1, 2 ]
+        }, {
+            targets: [ 3 ],
+            orderData: [ 3, 1 ]
+        }, {
+          'bSortable' : false,
+          'aTargets' : [ 0, 7, 8 ]
+        } ]
+    } );
+} );
 </script>
 {% endblock %}

@@ -23,4 +23,4 @@ urlpatterns = [
     url(r'^gcsuperuser/', admin.site.urls),
 ]
 
-handler404 = 'user.views.index'
+#handler404 = 'user.views.handler404'

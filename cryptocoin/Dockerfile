@@ -1,24 +1,9 @@
-# pull official base image
-FROM python:3.7-alpine
+FROM python:3.7-slim
 
-# set environment varibles
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+WORKDIR /code
 
-# set work directory
-WORKDIR /usr/src/cryptocoin
+RUN python -m pip install --upgrade pip
 
-# install dependencies
-RUN pip install --upgrade pip
-RUN apk update && apk add postgresql-dev gcc python3-dev musl-dev libjpeg-turbo-dev zlib-dev
+COPY . /code/
 
-# copy entrypoint.sh
-COPY ./entrypoint.sh /usr/src/cryptocoin/entrypoint.sh
-
-# copy project
-COPY . /usr/src/cryptocoin/
-
-RUN pip install -r /usr/src/cryptocoin/requirements.txt
-
-# run entrypoint.sh
-ENTRYPOINT ["/usr/src/cryptocoin/entrypoint.sh"]
+RUN python -m pip install -r /code/requirements.txt
